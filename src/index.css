@@ -1,0 +1,319 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.app-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  touch-action: none; /* Prevent scrolling on mobile */
+}
+
+.ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through to canvas */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.ui-overlay button {
+  pointer-events: auto;
+  padding: 12px 24px;
+  font-size: 1.2rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ui-overlay button:hover {
+  background: #2563eb;
+}
+
+.start-screen, .result-screen {
+  background: rgba(0, 0, 0, 0.8);
+  pointer-events: auto; /* Block clicks on canvas */
+}
+
+.game-hud {
+  justify-content: space-between;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.hud-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.target-box {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 16px 32px;
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+  margin-bottom: auto;
+  margin-top: 20px;
+  text-align: center;
+}
+
+.target-box .label {
+  font-size: 0.9rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.target-box .city-name {
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+}
+
+.round-result {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
+  margin-bottom: 40px;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.confirm-container {
+  pointer-events: auto;
+  margin-bottom: 40px;
+}
+
+.confirm-btn {
+  background: #f97316 !important; /* Orange */
+  font-weight: bold;
+  font-size: 1.4rem !important;
+  padding: 16px 32px !important;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.confirm-btn:hover {
+  background: #ea580c !important;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Start Screen Overhaul */
+.start-screen-overlay {
+  background: rgba(0, 0, 0, 0.4); /* Darker overlay but see-through to globe */
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.start-window {
+  background: rgba(30, 30, 30, 0.95);
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  border: 1px solid rgba(255,255,255,0.1);
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.logo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logo-section h1 {
+  margin: 10px 0 0;
+  font-size: 2.5rem;
+  background: linear-gradient(to right, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.description {
+  color: #ccc;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.stats-container {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 30px;
+  background: rgba(255,255,255,0.05);
+  padding: 15px;
+  border-radius: 12px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.play-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.play-btn:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* End Screen Specifics */
+.high-score-banner {
+  background: linear-gradient(to right, #fbbf24, #f59e0b);
+  color: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: bold;
+  animation: popIn 0.5s ease-out;
+}
+
+.final-score-section {
+  margin-bottom: 30px;
+}
+
+.final-score-label {
+  font-size: 1rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.final-score-value {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 0 20px rgba(255,255,255,0.2);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+}
+
+.share-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.share-btn:hover {
+  background: #059669;
+  transform: translateY(-2px);
+}
+
+.play-again-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: #4b5563;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.play-again-btn:hover {
+  background: #374151;
+  transform: translateY(-2px);
+}
+
+.come-back-text {
+  margin-top: 20px;
+  color: #888;
+  font-size: 0.9rem;
+  font-style: italic;
+}
