@@ -263,25 +263,29 @@ body {
 }
 
 .action-buttons {
-  display: flex;
+  display: flex !important;
+  justify-content: center;
   gap: 15px;
+  width: 100%;
 }
 
 .share-btn {
-  flex: 1;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
+  padding: 16px 32px;
   font-size: 1.1rem;
   font-weight: bold;
-  background: #10b981;
-  color: white;
+  background: #10b981 !important;
+  color: white !important;
   border: none;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .share-btn:hover {
