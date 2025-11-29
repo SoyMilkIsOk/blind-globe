@@ -1,5 +1,5 @@
 import { useRef, useMemo, useEffect } from 'react';
-import { ThreeEvent, useFrame, useThree } from '@react-three/fiber';
+import { ThreeEvent, useFrame } from '@react-three/fiber';
 import { Sphere, Line } from '@react-three/drei';
 import { TextureLoader, Vector3 } from 'three';
 import { useLoader } from '@react-three/fiber';
