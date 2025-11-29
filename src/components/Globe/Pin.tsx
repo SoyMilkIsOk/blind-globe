@@ -48,7 +48,7 @@ export function Pin({ lat, lng, color, label }: PinProps) {
         </mesh>
 
         {label && (
-          <Html position={[0, 0.15, 0]} center>
+          <Html position={[0, 0.15, 0]} center zIndexRange={[0, 0]}>
             <div style={{ 
               background: 'rgba(0,0,0,0.7)', 
               color: 'white', 
@@ -56,7 +56,8 @@ export function Pin({ lat, lng, color, label }: PinProps) {
               borderRadius: '4px',
               fontSize: '12px',
               pointerEvents: 'none',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              zIndex: 0
             }}>
               {label}
             </div>

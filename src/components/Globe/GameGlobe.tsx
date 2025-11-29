@@ -1,10 +1,12 @@
-import { useRef } from 'react';
-import { ThreeEvent } from '@react-three/fiber';
+import { useRef, useMemo, useEffect } from 'react';
+import { ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { Sphere, Line } from '@react-three/drei';
 import { TextureLoader, Vector3 } from 'three';
 import { useLoader } from '@react-three/fiber';
 import { useGameStore } from '../../store/gameStore';
 import { Pin } from './Pin';
+import countriesData from '../../data/world-countries.json';
+import { latLngToVector } from '../../utils/math';
 
 // Better texture URL (Three.js example texture, reliable)
 const REAL_MAP_URL = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg';
@@ -17,7 +19,8 @@ export function GameGlobe() {
     round, 
     guess, 
     tempGuess,
-    setTempGuess 
+    setTempGuess,
+    hintLevel
   } = useGameStore();
 
   const globeRef = useRef<any>(null);
@@ -26,6 +29,44 @@ export function GameGlobe() {
 
   const currentReference = referenceCities[round - 1];
   const currentTarget = targetCities[round - 1];
+
+  // Camera Animation State
+  const targetCameraPos = useRef<Vector3 | null>(null);
+
+  // Trigger animation when revealed
+  useEffect(() => {
+    if (gameState === 'revealed' && currentTarget && guess) {
+        const start = latLngToVector(guess.lat, guess.lng);
+        const end = latLngToVector(currentTarget.lat, currentTarget.lng);
+        
+        // Calculate midpoint
+        const mid = start.clone().add(end).normalize();
+        
+        // Calculate distance between points on sphere to adjust zoom
+        const dist = start.distanceTo(end);
+        
+        // Adjust zoom based on distance (closer if points are close, further if far)
+        // Base radius 2.0, add some factor of distance
+        const zoomRadius = 2.0 + (dist * 0.8);
+        
+        targetCameraPos.current = mid.multiplyScalar(zoomRadius);
+    } else {
+        targetCameraPos.current = null;
+    }
+  }, [gameState, currentTarget, guess]);
+
+  useFrame((state, delta) => {
+    if (targetCameraPos.current) {
+        // Smoothly interpolate camera position
+        state.camera.position.lerp(targetCameraPos.current, 2 * delta);
+        state.camera.lookAt(0, 0, 0);
+        
+        // Stop animating if close enough
+        if (state.camera.position.distanceTo(targetCameraPos.current) < 0.05) {
+            targetCameraPos.current = null;
+        }
+    }
+  });
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (gameState !== 'playing') return;
@@ -67,6 +108,38 @@ export function GameGlobe() {
     }
   }
 
+  // Process Country Outlines
+  const countryLines = useMemo(() => {
+    const lines: Vector3[][] = [];
+    
+    // Safety check for data
+    if (!(countriesData as any).features) {
+        console.error("No features found in countriesData");
+        return lines;
+    }
+
+    (countriesData as any).features.forEach((feature: any) => {
+        const geometry = feature.geometry;
+        if (geometry.type === 'Polygon') {
+            geometry.coordinates.forEach((ring: any[]) => {
+                const points = ring.map(([lng, lat]) => latLngToVector(lat, lng, 1.005)); // Increased radius slightly
+                lines.push(points);
+            });
+        } else if (geometry.type === 'MultiPolygon') {
+            geometry.coordinates.forEach((polygon: any[]) => {
+                polygon.forEach((ring: any[]) => {
+                    const points = ring.map(([lng, lat]) => latLngToVector(lat, lng, 1.005));
+                    lines.push(points);
+                });
+            });
+        }
+    });
+    console.log(`Generated ${lines.length} country border lines`);
+    return lines;
+  }, []);
+
+  console.log("GameGlobe Render:", { hintLevel, showRealMap, linesCount: countryLines.length });
+
   return (
     <group>
       {/* The Globe Sphere */}
@@ -81,16 +154,12 @@ export function GameGlobe() {
         ) : (
           <>
             <meshStandardMaterial color="#e0e0e0" roughness={0.8} />
-            {/* Grid Lines Helper - simple wireframe or separate lines? 
-                Let's use a wireframe sphere slightly larger or just a grid texture.
-                Actually, a wireframe is easiest for "lat long lines".
-            */}
           </>
         )}
       </Sphere>
 
-      {/* Grid Lines (Only when not revealed and not start) */}
-      {!showRealMap && (
+      {/* Grid Lines (Only when not revealed and not start AND hint level < 2) */}
+      {!showRealMap && hintLevel < 2 && (
         <group>
            {/* Longitude lines */}
            {Array.from({ length: 12 }).map((_, i) => (
@@ -117,13 +186,29 @@ export function GameGlobe() {
         </group>
       )}
 
+      {/* Country Outlines (Only when hint level >= 2 and not revealed/start) */}
+      {!showRealMap && hintLevel >= 2 && (
+        <group>
+            {countryLines.map((points, i) => (
+                <Line
+                    key={`country-${i}`}
+                    points={points}
+                    color="#333333" 
+                    lineWidth={1}
+                    transparent
+                    opacity={0.8}
+                />
+            ))}
+        </group>
+      )}
+
       {/* Reference Pin (Hidden on start and finished) */}
       {showPins && currentReference && (
         <Pin 
           lat={currentReference.lat} 
           lng={currentReference.lng} 
           color="blue" 
-          label={currentReference.name} 
+          label={hintLevel >= 1 || isRevealed ? `${currentReference.name}, ${currentReference.country}` : currentReference.name} 
         />
       )}
 
@@ -153,7 +238,7 @@ export function GameGlobe() {
           lat={currentTarget.lat} 
           lng={currentTarget.lng} 
           color="green" 
-          label={currentTarget.name}
+          label={`${currentTarget.name}, ${currentTarget.country}`}
         />
       )}
 
@@ -169,7 +254,7 @@ export function GameGlobe() {
   );
 }
 
-import { latLngToVector } from '../../utils/math';
+
 
 // Helper to create circle points for grid
 function createCirclePoints(radius: number, axis: 'x' | 'y', rotationDeg: number, latOffsetDeg: number = 0): Vector3[] {

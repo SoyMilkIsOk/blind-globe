@@ -20,10 +20,15 @@ interface GameState {
   totalLifetimeScore: number;
   lastDailyDate: string; // Track the date of the last played game
   
+  hintLevel: number;
+  
+  lastDistance: number | null; // Track distance of last guess
+
   // Actions
   initGame: () => void;
   startGame: () => void;
   setTempGuess: (lat: number, lng: number) => void;
+  useHint: () => void;
   confirmGuess: () => void;
   nextRound: () => void;
   resetGame: () => void;
@@ -45,9 +50,17 @@ export const useGameStore = create<GameState>()(
       highScore: 0,
       totalLifetimeScore: 0,
       lastDailyDate: '',
+      hintLevel: 0,
+      lastDistance: null,
 
       initGame: () => {
-        const today = new Date().toDateString();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric'
+        });
+        const today = formatter.format(new Date());
         const { lastDailyDate } = get();
 
         // If it's a new day, reset the game state
@@ -62,7 +75,9 @@ export const useGameStore = create<GameState>()(
                 totalScore: 0,
                 roundScore: 0,
                 guess: null,
-                tempGuess: null
+                tempGuess: null,
+                hintLevel: 0,
+                lastDistance: null
             });
         } else {
             // Same day - ensure we have data if missing (e.g. first load of day but state was partial)
@@ -79,7 +94,7 @@ export const useGameStore = create<GameState>()(
         // Prevent starting if already finished today
         if (gameState === 'finished') return;
 
-        set({ gameState: 'playing', round: 1, totalScore: 0, roundScore: 0, guess: null, tempGuess: null });
+        set({ gameState: 'playing', round: 1, totalScore: 0, roundScore: 0, guess: null, tempGuess: null, hintLevel: 0, lastDistance: null });
       },
 
       setTempGuess: (lat, lng) => {
@@ -87,8 +102,23 @@ export const useGameStore = create<GameState>()(
         set({ tempGuess: { lat, lng } });
       },
 
+      useHint: () => {
+        const { hintLevel } = get();
+        if (hintLevel >= 2) return;
+    
+        let newLevel = hintLevel;
+    
+        if (hintLevel === 0) {
+            newLevel = 1;
+        } else if (hintLevel === 1) {
+            newLevel = 2;
+        }
+    
+        set({ hintLevel: newLevel });
+      },
+
       confirmGuess: () => {
-        const { tempGuess, targetCities, round } = get();
+        const { tempGuess, targetCities, round, hintLevel } = get();
         if (!tempGuess) return;
 
         const target = targetCities[round - 1];
@@ -105,20 +135,29 @@ export const useGameStore = create<GameState>()(
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         const distance = R * c;
 
-// ... inside confirmGuess
-
         // Calculate score (Max 5000, drops off with distance)
-        let score = 0;
+        let guessScore = 0;
         if (distance < 50) {
-            score = 5000;
+            guessScore = 5000;
         } else {
-            score = Math.max(0, Math.round(5000 * (1 - (distance - 50) / 5000)));
+            guessScore = Math.max(0, Math.round(5000 * (1 - (distance - 50) / 5000)));
         }
 
-        // Trigger Confetti based on score
-        if (score > 4000) {
+        // Apply Penalties
+        let penalty = 0;
+        if (hintLevel >= 1) penalty += 500;
+        if (hintLevel >= 2) penalty += 2000;
+
+        // Ensure round score doesn't go below zero (optional, but good practice? User didn't specify, but usually scores are non-negative. 
+        // Actually, if they want to subtract from total score, it implies net score could be negative or just reduce the total.
+        // "Subtracts 300 points from the user's score". If round score is 0, total score should decrease.
+        // So we calculate net round score, which can be negative.
+        const netRoundScore = guessScore - penalty;
+
+        // Trigger Confetti based on guess score (not net score, to reward accuracy)
+        if (guessScore > 4000) {
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#22c55e'] }); // Green
-        } else if (score > 2000) {
+        } else if (guessScore > 2000) {
             confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#eab308'] }); // Yellow
         } else {
             confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 }, colors: ['#ef4444'] }); // Red
@@ -128,8 +167,12 @@ export const useGameStore = create<GameState>()(
             guess: tempGuess,
             tempGuess: null,
             gameState: 'revealed',
-            roundScore: score,
-            totalScore: get().totalScore + score
+            roundScore: guessScore, // Keep raw guess score for display? Or net? 
+            // The UI currently shows "Guess Score: {roundScore}". So roundScore should be the guess score.
+            // And then we calculate net in the UI. 
+            // BUT, we need to update totalScore.
+            totalScore: get().totalScore + netRoundScore,
+            lastDistance: Math.round(distance)
         });
       },
 
@@ -141,15 +184,16 @@ export const useGameStore = create<GameState>()(
                 gameState: 'finished',
                 gamesPlayed: gamesPlayed + 1,
                 highScore: Math.max(highScore, totalScore),
-                totalLifetimeScore: totalLifetimeScore + totalScore
+                totalLifetimeScore: totalLifetimeScore + totalScore,
+                lastDistance: null
             });
         } else {
-            set({ round: round + 1, gameState: 'playing', guess: null, tempGuess: null, roundScore: 0 });
+            set({ round: round + 1, gameState: 'playing', guess: null, tempGuess: null, roundScore: 0, hintLevel: 0, lastDistance: null });
         }
       },
 
       resetGame: () => {
-        set({ gameState: 'start', round: 1, totalScore: 0, roundScore: 0, guess: null, tempGuess: null });
+        set({ gameState: 'start', round: 1, totalScore: 0, roundScore: 0, guess: null, tempGuess: null, hintLevel: 0, lastDistance: null });
       }
     }),
     {
