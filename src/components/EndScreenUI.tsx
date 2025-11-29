@@ -52,7 +52,7 @@ export function EndScreenUI() {
     // 🏆 Score: [Score]
     
     const dateStr = new Date().toLocaleDateString();
-    const shareText = `blindglobe.terpmetrix.com\n🙈🌍${dateStr}\n🏆 Score: ${totalScore}\n\nCan you top my geo-spatial awareness today?`;
+    const shareText = `blindglobe.terpscoops.com\n🙈🌍${dateStr}\n🏆 Score: ${totalScore}\n\nCan you top my geo-spatial awareness today?`;
 
     if (navigator.share) {
       try {
