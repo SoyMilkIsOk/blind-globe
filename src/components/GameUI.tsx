@@ -77,17 +77,19 @@ export function GameUI() {
                 {hintLevel === 1 && "Hint 2 (-2000pts)"}
                 {hintLevel === 2 && "Hints Used"}
             </button>
+
+            {/* Confirm Button - Moved here for mobile layout */}
+            {tempGuess && (
+                <div className="confirm-container" style={{ pointerEvents: 'auto', marginTop: '10px' }}>
+                    <button className="confirm-btn" onClick={confirmGuess}>
+                        Confirm Guess
+                    </button>
+                </div>
+            )}
         </div>
       )}
 
-      {/* Confirm Button */}
-      {gameState === 'playing' && tempGuess && (
-        <div className="confirm-container">
-            <button className="confirm-btn" onClick={confirmGuess}>
-                Confirm Guess
-            </button>
-        </div>
-      )}
+
 
       {gameState === 'revealed' && (
         <div className="round-result" style={{ 

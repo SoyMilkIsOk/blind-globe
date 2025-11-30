@@ -6,16 +6,27 @@ export interface DailyGameData {
   referenceCities: City[];
 }
 
-export const getDailyGameData = (): DailyGameData => {
-  // Create a seed based on the current date in Eastern Time (America/New_York)
+export const getDailyDateString = (): string => {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric',
-    month: 'numeric',
-    day: 'numeric'
+    month: '2-digit',
+    day: '2-digit'
   });
-  const seed = formatter.format(now);
+  
+  // formatToParts gives us reliable parts regardless of locale separator preferences
+  const parts = formatter.formatToParts(now);
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+
+  return `${year}-${month}-${day}`;
+};
+
+export const getDailyGameData = (): DailyGameData => {
+  // Create a seed based on the current date in Eastern Time (America/New_York)
+  const seed = getDailyDateString();
   
   const rng = seedrandom(seed);
 

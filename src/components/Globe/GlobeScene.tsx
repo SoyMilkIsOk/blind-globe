@@ -33,6 +33,7 @@ export function GlobeScene() {
             minDistance={1.5} 
             maxDistance={4} 
             rotateSpeed={0.5}
+            target={isMobile ? [0, .5, 0] : [0, 0, 0]}
           />
         </Suspense>
       </Canvas>

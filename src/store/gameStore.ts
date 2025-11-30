@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { City } from '../data/cities';
-import { getDailyGameData } from '../utils/dailySeed';
+import { getDailyGameData, getDailyDateString } from '../utils/dailySeed';
 import confetti from 'canvas-confetti';
 
 interface GameState {
@@ -54,13 +54,7 @@ export const useGameStore = create<GameState>()(
       lastDistance: null,
 
       initGame: () => {
-        const formatter = new Intl.DateTimeFormat('en-US', {
-          timeZone: 'America/New_York',
-          year: 'numeric',
-          month: 'numeric',
-          day: 'numeric'
-        });
-        const today = formatter.format(new Date());
+        const today = getDailyDateString();
         const { lastDailyDate } = get();
 
         // If it's a new day, reset the game state
