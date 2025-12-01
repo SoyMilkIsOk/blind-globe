@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { City } from '../data/cities';
-import { getDailyGameData, getDailyDateString } from '../utils/dailySeed';
+import { getDailyGameData, fetchDailyDateString } from '../utils/dailySeed';
 import confetti from 'canvas-confetti';
 
 interface GameState {
@@ -25,7 +25,7 @@ interface GameState {
   lastDistance: number | null; // Track distance of last guess
 
   // Actions
-  initGame: () => void;
+  initGame: () => Promise<void>;
   startGame: () => void;
   setTempGuess: (lat: number, lng: number) => void;
   useHint: () => void;
@@ -53,13 +53,14 @@ export const useGameStore = create<GameState>()(
       hintLevel: 0,
       lastDistance: null,
 
-      initGame: () => {
-        const today = getDailyDateString();
+      initGame: async () => {
+        // Fetch the authoritative date string (or fallback to local)
+        const today = await fetchDailyDateString();
         const { lastDailyDate } = get();
 
         // If it's a new day, reset the game state
         if (lastDailyDate !== today) {
-            const { targetCities, referenceCities } = getDailyGameData();
+            const { targetCities, referenceCities } = getDailyGameData(today);
             set({ 
                 targetCities, 
                 referenceCities,
@@ -77,7 +78,7 @@ export const useGameStore = create<GameState>()(
             // Same day - ensure we have data if missing (e.g. first load of day but state was partial)
             const { targetCities } = get();
             if (targetCities.length === 0) {
-                const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData();
+                const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
                 set({ targetCities: newTargets, referenceCities: newRefs });
             }
         }

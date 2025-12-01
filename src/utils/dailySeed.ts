@@ -9,7 +9,7 @@ export interface DailyGameData {
 export const getDailyDateString = (): string => {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+    timeZone: 'America/Denver', // US/Mountain
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -24,9 +24,23 @@ export const getDailyDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const getDailyGameData = (): DailyGameData => {
-  // Create a seed based on the current date in Eastern Time (America/New_York)
-  const seed = getDailyDateString();
+export const fetchDailyDateString = async (): Promise<string> => {
+  try {
+    const response = await fetch('https://worldtimeapi.org/api/timezone/US/Mountain');
+    if (!response.ok) throw new Error('Network response was not ok');
+    const data = await response.json();
+    // data.datetime is ISO 8601, e.g., "2023-10-27T10:00:00.123456-04:00"
+    // We just need the date part YYYY-MM-DD
+    return data.datetime.split('T')[0];
+  } catch (error) {
+    console.warn('Failed to fetch time from API, falling back to local time:', error);
+    return getDailyDateString();
+  }
+};
+
+export const getDailyGameData = (dateString?: string): DailyGameData => {
+  // Create a seed based on the provided date or current date in Eastern Time
+  const seed = dateString || getDailyDateString();
   
   const rng = seedrandom(seed);
 
