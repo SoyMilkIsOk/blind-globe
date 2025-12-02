@@ -26,14 +26,30 @@ export const getDailyDateString = (): string => {
 
 export const fetchDailyDateString = async (): Promise<string> => {
   try {
-    const response = await fetch('https://worldtimeapi.org/api/timezone/US/Mountain');
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
-    // data.datetime is ISO 8601, e.g., "2023-10-27T10:00:00.123456-04:00"
-    // We just need the date part YYYY-MM-DD
-    return data.datetime.split('T')[0];
+    // Make a HEAD request to the current page to get the server's Date header
+    const response = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+    const dateHeader = response.headers.get('Date');
+    
+    if (!dateHeader) throw new Error('No Date header found in response');
+
+    const serverDate = new Date(dateHeader);
+    
+    // Format the server date to US/Mountain time
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Denver', // US/Mountain
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+
+    const parts = formatter.formatToParts(serverDate);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+
+    return `${year}-${month}-${day}`;
   } catch (error) {
-    console.warn('Failed to fetch time from API, falling back to local time:', error);
+    console.warn('Failed to fetch server time, falling back to local time:', error);
     return getDailyDateString();
   }
 };
