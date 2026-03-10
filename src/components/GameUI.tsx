@@ -1,6 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { StartScreenUI } from './StartScreenUI';
 import { EndScreenUI } from './EndScreenUI';
+import { Globe, WifiOff, RefreshCw } from 'lucide-react';
 
 export function GameUI() {
   const { 
@@ -14,10 +15,47 @@ export function GameUI() {
     nextRound,
     hintLevel,
     useHint,
-    lastDistance
+    lastDistance,
+    errorMessage,
+    retryInit
   } = useGameStore();
 
   const currentTarget = targetCities[round - 1];
+
+  // Loading state — waiting for API
+  if (gameState === 'loading') {
+    return (
+      <div className="ui-overlay start-screen-overlay">
+        <div className="start-window loading-window">
+          <div className="logo-section">
+            <Globe size={48} color="#3b82f6" className="spin-slow" />
+          </div>
+          <p className="loading-text">Fetching today's puzzle…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state — APIs unreachable
+  if (gameState === 'error') {
+    return (
+      <div className="ui-overlay start-screen-overlay">
+        <div className="start-window error-window">
+          <div className="logo-section">
+            <WifiOff size={48} color="#ef4444" />
+            <h1>Connection Error</h1>
+          </div>
+          <p className="error-text">
+            {errorMessage || 'Could not connect to the game server. An internet connection is required to play.'}
+          </p>
+          <button className="play-btn retry-btn" onClick={retryInit}>
+            <RefreshCw size={18} />
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (gameState === 'start') {
     return <StartScreenUI />;

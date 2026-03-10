@@ -8,7 +8,7 @@ interface GameState {
   round: number;
   totalScore: number;
   roundScore: number;
-  gameState: 'start' | 'playing' | 'revealed' | 'finished';
+  gameState: 'loading' | 'error' | 'start' | 'playing' | 'revealed' | 'finished';
   targetCities: City[];
   referenceCities: City[];
   guess: { lat: number; lng: number } | null;
@@ -24,8 +24,12 @@ interface GameState {
   
   lastDistance: number | null; // Track distance of last guess
 
+  // Error message when APIs fail
+  errorMessage: string;
+
   // Actions
   initGame: () => Promise<void>;
+  retryInit: () => Promise<void>;
   startGame: () => void;
   setTempGuess: (lat: number, lng: number) => void;
   useHint: () => void;
@@ -40,7 +44,7 @@ export const useGameStore = create<GameState>()(
       round: 1,
       totalScore: 0,
       roundScore: 0,
-      gameState: 'start',
+      gameState: 'loading',
       targetCities: [],
       referenceCities: [],
       guess: null,
@@ -52,42 +56,65 @@ export const useGameStore = create<GameState>()(
       lastDailyDate: '',
       hintLevel: 0,
       lastDistance: null,
+      errorMessage: '',
 
       initGame: async () => {
-        // Fetch the authoritative date string (or fallback to local)
-        const today = await fetchDailyDateString();
-        const { lastDailyDate } = get();
+        set({ gameState: 'loading', errorMessage: '' });
 
-        // If it's a new day, reset the game state
-        if (lastDailyDate !== today) {
-            const { targetCities, referenceCities } = getDailyGameData(today);
-            set({ 
-                targetCities, 
-                referenceCities,
-                lastDailyDate: today,
-                gameState: 'start',
-                round: 1,
-                totalScore: 0,
-                roundScore: 0,
-                guess: null,
-                tempGuess: null,
-                hintLevel: 0,
-                lastDistance: null
-            });
-        } else {
-            // Same day - ensure we have data if missing (e.g. first load of day but state was partial)
-            const { targetCities } = get();
-            if (targetCities.length === 0) {
-                const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
-                set({ targetCities: newTargets, referenceCities: newRefs });
-            }
+        try {
+          // Fetch the authoritative date string — NO local fallback
+          const today = await fetchDailyDateString();
+          const { lastDailyDate, gameState: prevState } = get();
+
+          // If it's a new day, reset the game state
+          if (lastDailyDate !== today) {
+              const { targetCities, referenceCities } = getDailyGameData(today);
+              set({ 
+                  targetCities, 
+                  referenceCities,
+                  lastDailyDate: today,
+                  gameState: 'start',
+                  round: 1,
+                  totalScore: 0,
+                  roundScore: 0,
+                  guess: null,
+                  tempGuess: null,
+                  hintLevel: 0,
+                  lastDistance: null,
+                  errorMessage: ''
+              });
+          } else {
+              // Same day — restore previous game state
+              const { targetCities } = get();
+              if (targetCities.length === 0) {
+                  const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
+                  set({ targetCities: newTargets, referenceCities: newRefs });
+              }
+              // If previously in a valid game state, keep it; otherwise show start
+              if (prevState === 'loading' || prevState === 'error') {
+                  set({ gameState: 'start' });
+              } else {
+                  set({ gameState: prevState });
+              }
+          }
+        } catch (err) {
+          const message = err instanceof Error
+            ? err.message
+            : 'Unable to connect to time server. Please check your internet connection.';
+          console.error('[BlindGlobe] initGame failed:', message);
+          set({ gameState: 'error', errorMessage: message });
         }
+      },
+
+      retryInit: async () => {
+        // Alias for initGame — gives the UI a clear "retry" action
+        await get().initGame();
       },
 
       startGame: () => {
         const { gameState } = get();
-        // Prevent starting if already finished today
-        if (gameState === 'finished') return;
+        // Prevent starting if in an invalid state
+        if (gameState === 'finished' || gameState === 'loading' || gameState === 'error') return;
 
         set({ gameState: 'playing', round: 1, totalScore: 0, roundScore: 0, guess: null, tempGuess: null, hintLevel: 0, lastDistance: null });
       },
@@ -143,29 +170,22 @@ export const useGameStore = create<GameState>()(
         if (hintLevel >= 1) penalty += 500;
         if (hintLevel >= 2) penalty += 2000;
 
-        // Ensure round score doesn't go below zero (optional, but good practice? User didn't specify, but usually scores are non-negative. 
-        // Actually, if they want to subtract from total score, it implies net score could be negative or just reduce the total.
-        // "Subtracts 300 points from the user's score". If round score is 0, total score should decrease.
-        // So we calculate net round score, which can be negative.
         const netRoundScore = guessScore - penalty;
 
-        // Trigger Confetti based on guess score (not net score, to reward accuracy)
+        // Trigger Confetti based on guess score
         if (guessScore > 4000) {
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#22c55e'] }); // Green
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#22c55e'] });
         } else if (guessScore > 2000) {
-            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#eab308'] }); // Yellow
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#eab308'] });
         } else {
-            confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 }, colors: ['#ef4444'] }); // Red
+            confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 }, colors: ['#ef4444'] });
         }
 
         set({ 
             guess: tempGuess,
             tempGuess: null,
             gameState: 'revealed',
-            roundScore: guessScore, // Keep raw guess score for display? Or net? 
-            // The UI currently shows "Guess Score: {roundScore}". So roundScore should be the guess score.
-            // And then we calculate net in the UI. 
-            // BUT, we need to update totalScore.
+            roundScore: guessScore,
             totalScore: get().totalScore + netRoundScore,
             lastDistance: Math.round(distance)
         });

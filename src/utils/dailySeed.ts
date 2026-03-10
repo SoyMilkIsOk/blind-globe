@@ -6,30 +6,26 @@ export interface DailyGameData {
   referenceCities: City[];
 }
 
-export const getDailyDateString = (): string => {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver', // US/Mountain
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  
-  // formatToParts gives us reliable parts regardless of locale separator preferences
-  const parts = formatter.formatToParts(now);
-  const year = parts.find(p => p.type === 'year')?.value;
-  const month = parts.find(p => p.type === 'month')?.value;
-  const day = parts.find(p => p.type === 'day')?.value;
-
-  return `${year}-${month}-${day}`;
-};
+/**
+ * Deterministic Fisher-Yates shuffle using a seeded RNG.
+ * Unlike Array.sort(() => 0.5 - rng()), this produces identical
+ * results across ALL JavaScript engines (V8, SpiderMonkey, JSC).
+ */
+function fisherYatesShuffle<T>(array: T[], rng: () => number): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 /**
  * Fetch the current date in America/Denver (MST/MDT) from an external,
- * device-independent time API. Falls back through multiple sources to
- * guarantee every player worldwide sees the same daily cities.
+ * device-independent time API. No local fallback — if all APIs fail,
+ * the game cannot start (this guarantees every device gets the same cities).
  *
- * Chain: timeapi.io → worldtimeapi.org → local Intl fallback
+ * Chain: timeapi.io → worldtimeapi.org → throws error
  */
 export const fetchDailyDateString = async (): Promise<string> => {
   // Helper: zero-pad a number to 2 digits
@@ -70,30 +66,27 @@ export const fetchDailyDateString = async (): Promise<string> => {
     }
     throw new Error('Unexpected worldtimeapi.org response shape');
   } catch (err) {
-    console.warn('[BlindGlobe] worldtimeapi.org failed, using local fallback:', err);
+    console.warn('[BlindGlobe] worldtimeapi.org also failed:', err);
   }
 
-  // --- 3. Last resort: device local time via Intl ---
-  const dateStr = getDailyDateString();
-  console.log('[BlindGlobe] Daily seed from local Intl fallback:', dateStr);
-  return dateStr;
+  // --- 3. No local fallback — throw so the game shows an error ---
+  throw new Error(
+    'Could not fetch the daily date from any time API. Please check your internet connection and try again.'
+  );
 };
 
-export const getDailyGameData = (dateString?: string): DailyGameData => {
-  // Create a seed based on the provided date or current date in Eastern Time
-  const seed = dateString || getDailyDateString();
-  
-  const rng = seedrandom(seed);
+export const getDailyGameData = (dateString: string): DailyGameData => {
+  const rng = seedrandom(dateString);
 
   // Filter cities by difficulty
   const easyCities = CITIES.filter(c => c.difficulty === 'easy');
   const mediumCities = CITIES.filter(c => c.difficulty === 'medium');
   const hardCities = CITIES.filter(c => c.difficulty === 'hard');
 
-  // Shuffle each category
-  const shuffledEasy = [...easyCities].sort(() => 0.5 - rng());
-  const shuffledMedium = [...mediumCities].sort(() => 0.5 - rng());
-  const shuffledHard = [...hardCities].sort(() => 0.5 - rng());
+  // Deterministic shuffle using Fisher-Yates (works identically on every engine)
+  const shuffledEasy = fisherYatesShuffle(easyCities, rng);
+  const shuffledMedium = fisherYatesShuffle(mediumCities, rng);
+  const shuffledHard = fisherYatesShuffle(hardCities, rng);
 
   const targetCities: City[] = [];
   const referenceCities: City[] = [];
@@ -107,22 +100,8 @@ export const getDailyGameData = (dateString?: string): DailyGameData => {
   // Round 3: Hard
   targetCities.push(shuffledHard[0]);
 
-  // Select reference cities
-  // We want reference cities to be distinct from targets.
-  // We can pick from the general pool or specific pools.
-  // Let's pick from the same difficulty pool for fairness/relevance, or just random?
-  // "Reference city" usually implies a starting point.
-  // Let's just pick a random city that isn't the target for that round.
-  
-  // Helper to pick a reference city
+  // Select reference cities — pick from full list, avoid matching target
   const pickReference = (target: City) => {
-    // Combine all cities or pick from same difficulty? 
-    // Let's pick from the full list to give variety, but maybe bias towards known cities?
-    // Actually, let's just pick from the full list but ensure it's not the target.
-    // Combine all cities or pick from same difficulty? 
-    // Let's pick from the full list to give variety, but maybe bias towards known cities?
-    // Actually, let's just pick from the full list but ensure it's not the target.
-    // Better: just pick a random index from CITIES
     let ref: City;
     do {
         const idx = Math.floor(rng() * CITIES.length);
