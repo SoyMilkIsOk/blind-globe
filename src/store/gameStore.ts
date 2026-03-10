@@ -84,17 +84,15 @@ export const useGameStore = create<GameState>()(
                   errorMessage: ''
               });
           } else {
-              // Same day — restore previous game state
-              const { targetCities } = get();
-              if (targetCities.length === 0) {
-                  const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
-                  set({ targetCities: newTargets, referenceCities: newRefs });
-              }
+              // Same day — restore previous game state but ALWAYS regenerate cities 
+              // to ensure we bypass any old cached arrays from local storage backups.
+              const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
+              
               // If previously in a valid game state, keep it; otherwise show start
               if (prevState === 'loading' || prevState === 'error') {
-                  set({ gameState: 'start' });
+                  set({ targetCities: newTargets, referenceCities: newRefs, gameState: 'start' });
               } else {
-                  set({ gameState: prevState });
+                  set({ targetCities: newTargets, referenceCities: newRefs, gameState: prevState });
               }
           }
         } catch (err) {
@@ -217,8 +215,6 @@ export const useGameStore = create<GameState>()(
         round: state.round,
         totalScore: state.totalScore,
         gameState: state.gameState,
-        targetCities: state.targetCities,
-        referenceCities: state.referenceCities,
         // Persist stats
         gamesPlayed: state.gamesPlayed,
         highScore: state.highScore,

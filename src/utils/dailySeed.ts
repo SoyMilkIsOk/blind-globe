@@ -34,7 +34,7 @@ export const fetchDailyDateString = async (): Promise<string> => {
   // --- 1. Primary: timeapi.io ---
   try {
     const res = await fetch(
-      'https://timeapi.io/api/time/current/zone?timeZone=America/Denver',
+      `https://timeapi.io/api/time/current/zone?timeZone=America/Denver&_=${Date.now()}`,
       { cache: 'no-store' }
     );
     if (!res.ok) throw new Error(`timeapi.io status ${res.status}`);
@@ -53,7 +53,7 @@ export const fetchDailyDateString = async (): Promise<string> => {
   // --- 2. Fallback: worldtimeapi.org ---
   try {
     const res = await fetch(
-      'https://worldtimeapi.org/api/timezone/America/Denver',
+      `https://worldtimeapi.org/api/timezone/America/Denver?_=${Date.now()}`,
       { cache: 'no-store' }
     );
     if (!res.ok) throw new Error(`worldtimeapi.org status ${res.status}`);
