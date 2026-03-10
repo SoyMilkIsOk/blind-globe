@@ -1,7 +1,39 @@
-import { Share2, Globe } from 'lucide-react';
+import { Share2, Globe, Clock } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import confetti from 'canvas-confetti';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+/** Returns ms until midnight MST (America/Denver) */
+function getMsUntilMidnightMST(): number {
+  const now = new Date();
+  // Get the current time parts in Denver timezone
+  const denverParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+
+  const get = (type: string) => denverParts.find(p => p.type === type)?.value ?? '0';
+  const h = parseInt(get('hour'), 10);
+  const m = parseInt(get('minute'), 10);
+  const s = parseInt(get('second'), 10);
+
+  const secondsLeft = (24 - h - 1) * 3600 + (60 - m - 1) * 60 + (60 - s);
+  return secondsLeft * 1000;
+}
+
+function formatCountdown(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 export function EndScreenUI() {
   const { 
@@ -13,6 +45,14 @@ export function EndScreenUI() {
 
   const averageScore = gamesPlayed > 0 ? Math.round(totalLifetimeScore / gamesPlayed) : 0;
   const isNewHighScore = totalScore >= highScore && gamesPlayed > 1;
+
+  // Live countdown
+  const [remaining, setRemaining] = useState(getMsUntilMidnightMST());
+
+  useEffect(() => {
+    const id = setInterval(() => setRemaining(getMsUntilMidnightMST()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     // Trigger rainbow confetti on mount
@@ -42,15 +82,6 @@ export function EndScreenUI() {
   }, []);
 
   const handleShare = async () => {
-    // Generate Share String
-    // 🌍 Blind Globe #123
-    // 🎯 Score: 12500
-    // 🟩🟩🟨 (Example of rounds? Or just score)
-    // Let's do:
-    // 🌍 Blind Globe
-    // 📅 [Date]
-    // 🏆 Score: [Score]
-    
     const dateStr = new Date().toLocaleDateString();
     const shareText = `blindglobe.terpscoops.com\n🙈🌍${dateStr}\n🏆 Score: ${totalScore}\n\nCan you top my geo-spatial awareness today?`;
 
@@ -63,7 +94,6 @@ export function EndScreenUI() {
         console.log('Error sharing:', err);
       }
     } else {
-      // Fallback to clipboard
       navigator.clipboard.writeText(shareText);
       alert('Score copied to clipboard!');
     }
@@ -71,9 +101,9 @@ export function EndScreenUI() {
 
   return (
     <div className="ui-overlay start-screen-overlay">
-      <div className="start-window">
+      <div className="start-window end-window">
         <div className="logo-section">
-          <Globe size={48} color="#3b82f6" />
+          <Globe size={40} color="#3b82f6" />
           <h1>Game Over</h1>
         </div>
 
@@ -105,14 +135,17 @@ export function EndScreenUI() {
 
         <div className="action-buttons">
             <button className="share-btn" onClick={handleShare}>
-                <Share2 size={20} />
+                <Share2 size={18} />
                 Share Result
             </button>
         </div>
         
-        <p className="come-back-text">
-            Come back tomorrow to play again!
-        </p>
+        {/* Countdown to next puzzle */}
+        <div className="countdown-section">
+            <Clock size={16} className="countdown-icon" />
+            <span className="countdown-label">Next puzzle in</span>
+            <span className="countdown-timer">{formatCountdown(remaining)}</span>
+        </div>
       </div>
     </div>
   );

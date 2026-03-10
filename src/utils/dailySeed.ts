@@ -24,34 +24,59 @@ export const getDailyDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * Fetch the current date in America/Denver (MST/MDT) from an external,
+ * device-independent time API. Falls back through multiple sources to
+ * guarantee every player worldwide sees the same daily cities.
+ *
+ * Chain: timeapi.io → worldtimeapi.org → local Intl fallback
+ */
 export const fetchDailyDateString = async (): Promise<string> => {
+  // Helper: zero-pad a number to 2 digits
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  // --- 1. Primary: timeapi.io ---
   try {
-    // Make a HEAD request to the current page to get the server's Date header
-    const response = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
-    const dateHeader = response.headers.get('Date');
-    
-    if (!dateHeader) throw new Error('No Date header found in response');
-
-    const serverDate = new Date(dateHeader);
-    
-    // Format the server date to US/Mountain time
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Denver', // US/Mountain
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-
-    const parts = formatter.formatToParts(serverDate);
-    const year = parts.find(p => p.type === 'year')?.value;
-    const month = parts.find(p => p.type === 'month')?.value;
-    const day = parts.find(p => p.type === 'day')?.value;
-
-    return `${year}-${month}-${day}`;
-  } catch (error) {
-    console.warn('Failed to fetch server time, falling back to local time:', error);
-    return getDailyDateString();
+    const res = await fetch(
+      'https://timeapi.io/api/time/current/zone?timeZone=America/Denver',
+      { cache: 'no-store' }
+    );
+    if (!res.ok) throw new Error(`timeapi.io status ${res.status}`);
+    const data = await res.json();
+    // data shape: { year, month, day, ... }
+    if (data.year && data.month && data.day) {
+      const dateStr = `${data.year}-${pad(data.month)}-${pad(data.day)}`;
+      console.log('[BlindGlobe] Daily seed from timeapi.io:', dateStr);
+      return dateStr;
+    }
+    throw new Error('Unexpected timeapi.io response shape');
+  } catch (err) {
+    console.warn('[BlindGlobe] timeapi.io failed, trying fallback:', err);
   }
+
+  // --- 2. Fallback: worldtimeapi.org ---
+  try {
+    const res = await fetch(
+      'https://worldtimeapi.org/api/timezone/America/Denver',
+      { cache: 'no-store' }
+    );
+    if (!res.ok) throw new Error(`worldtimeapi.org status ${res.status}`);
+    const data = await res.json();
+    // data.datetime looks like "2026-03-10T14:30:00.123456-06:00"
+    if (data.datetime) {
+      const dateStr = data.datetime.slice(0, 10); // "YYYY-MM-DD"
+      console.log('[BlindGlobe] Daily seed from worldtimeapi.org:', dateStr);
+      return dateStr;
+    }
+    throw new Error('Unexpected worldtimeapi.org response shape');
+  } catch (err) {
+    console.warn('[BlindGlobe] worldtimeapi.org failed, using local fallback:', err);
+  }
+
+  // --- 3. Last resort: device local time via Intl ---
+  const dateStr = getDailyDateString();
+  console.log('[BlindGlobe] Daily seed from local Intl fallback:', dateStr);
+  return dateStr;
 };
 
 export const getDailyGameData = (dateString?: string): DailyGameData => {

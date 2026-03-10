@@ -13,17 +13,20 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ───────── Base layout ───────── */
 body {
   margin: 0;
   display: flex;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;          /* dynamic viewport for mobile */
 }
 
 #root {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   margin: 0;
   padding: 0;
   text-align: center;
@@ -37,13 +40,14 @@ body {
   touch-action: none; /* Prevent scrolling on mobile */
 }
 
+/* ───────── UI overlay (shared) ───────── */
 .ui-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Let clicks pass through to canvas */
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -54,132 +58,61 @@ body {
 .ui-overlay button {
   pointer-events: auto;
   padding: 12px 24px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   background: #3b82f6;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.15s;
 }
 
 .ui-overlay button:hover {
   background: #2563eb;
 }
 
+.ui-overlay button:active {
+  transform: scale(0.97);
+}
+
 .start-screen, .result-screen {
   background: rgba(0, 0, 0, 0.8);
-  pointer-events: auto; /* Block clicks on canvas */
-}
-
-.game-hud {
-  justify-content: space-between;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.hud-top {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  font-size: 1.2rem;
-  font-weight: bold;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-
-.target-box {
-  background: rgba(0, 0, 0, 0.6);
-  padding: 16px 32px;
-  border-radius: 12px;
-  backdrop-filter: blur(4px);
-  margin-bottom: auto;
-  margin-top: 20px;
-  text-align: center;
-}
-
-.target-box .label {
-  font-size: 0.9rem;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.target-box .city-name {
-  font-size: 2rem;
-  font-weight: bold;
-  color: white;
-}
-
-.round-result {
   pointer-events: auto;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 24px;
-  border-radius: 16px;
-  text-align: center;
-  margin-bottom: 40px;
-  animation: slideUp 0.3s ease-out;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-.confirm-container {
-  pointer-events: auto;
-  margin-bottom: 40px;
-}
-
-.confirm-btn {
-  background: #f97316 !important; /* Orange */
-  font-weight: bold;
-  font-size: 1.4rem !important;
-  padding: 16px 32px !important;
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
-  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.confirm-btn:hover {
-  background: #ea580c !important;
-}
-
-@keyframes popIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* Start Screen Overhaul */
+/* ───────── Start / End Screen window ───────── */
 .start-screen-overlay {
-  background: rgba(0, 0, 0, 0.4); /* Darker overlay but see-through to globe */
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(2px);
   pointer-events: auto;
 }
 
 .start-window {
   background: rgba(30, 30, 30, 0.95);
-  padding: 40px;
+  padding: 36px 32px;
   border-radius: 24px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
   text-align: center;
   max-width: 400px;
-  width: 90%;
+  width: 88%;
   border: 1px solid rgba(255,255,255,0.1);
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: visible;
   position: relative;
   z-index: 100;
+  box-sizing: border-box;
 }
 
 .logo-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .logo-section h1 {
-  margin: 10px 0 0;
-  font-size: 2.5rem;
+  margin: 8px 0 0;
+  font-size: 2.2rem;
   background: linear-gradient(to right, #60a5fa, #a78bfa);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -187,16 +120,17 @@ body {
 
 .description {
   color: #ccc;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
   line-height: 1.6;
+  font-size: 0.95rem;
 }
 
 .stats-container {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
   background: rgba(255,255,255,0.05);
-  padding: 15px;
+  padding: 12px 8px;
   border-radius: 12px;
 }
 
@@ -206,21 +140,21 @@ body {
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: bold;
   color: white;
 }
 
 .stat-label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #888;
   text-transform: uppercase;
 }
 
 .play-btn {
   width: 100%;
-  padding: 16px;
-  font-size: 1.2rem;
+  padding: 14px;
+  font-size: 1.1rem;
   font-weight: bold;
   background: #3b82f6;
   color: white;
@@ -236,30 +170,213 @@ body {
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-/* End Screen Specifics */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ───────── Game HUD ───────── */
+.game-hud {
+  justify-content: space-between;
+  padding: 16px;
+  box-sizing: border-box;
+  z-index: 1000;
+}
+
+.hud-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.1rem;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* ───────── Target area (playing state) ───────── */
+.target-container {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.target-box {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 12px 24px;
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.target-box .label {
+  font-size: 0.8rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.target-box .city-name {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: white;
+}
+
+.country-hint {
+  color: #93c5fd;
+}
+
+/* ───────── Hint button ───────── */
+.hint-btn {
+  pointer-events: auto !important;
+  background: #8b5cf6 !important;
+  padding: 0.45rem 0.9rem !important;
+  font-size: 0.85rem !important;
+  border-radius: 0.5rem;
+  border: none;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
+
+.hint-btn--used {
+  background: #555 !important;
+  opacity: 0.7;
+  cursor: default !important;
+}
+
+/* ───────── Confirm guess ───────── */
+.confirm-container {
+  pointer-events: auto;
+  margin-top: 6px;
+}
+
+.confirm-btn {
+  background: #f97316 !important;
+  font-weight: bold;
+  font-size: 1.2rem !important;
+  padding: 14px 28px !important;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.confirm-btn:hover {
+  background: #ea580c !important;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ───────── Round result (revealed state) ───────── */
+.round-result {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  text-align: center;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.2);
+  min-width: 280px;
+  max-width: 360px;
+  width: 88%;
+  z-index: 1001;
+  animation: slideUp 0.3s ease-out;
+  box-sizing: border-box;
+}
+
+.round-result__title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.3rem;
+  color: #fbbf24;
+}
+
+.round-result__details {
+  margin-bottom: 1.25rem;
+  text-align: left;
+  font-size: 1rem;
+}
+
+.round-result__distance {
+  text-align: center;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+  color: #ddd;
+  font-size: 0.95rem;
+}
+
+.round-result__city {
+  color: #fff;
+  font-weight: bold;
+}
+
+.round-result__row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.round-result__row--penalty {
+  color: #ef4444;
+}
+
+.round-result__total {
+  border-top: 1px solid rgba(255,255,255,0.3);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.round-result__next-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.65rem 1.4rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.round-result__next-btn:hover {
+  background: #2563eb;
+}
+
+/* ───────── End screen extras ───────── */
 .high-score-banner {
   background: linear-gradient(to right, #fbbf24, #f59e0b);
   color: #fff;
-  padding: 10px;
+  padding: 8px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   font-weight: bold;
   animation: popIn 0.5s ease-out;
+  font-size: 0.95rem;
 }
 
 .final-score-section {
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .final-score-label {
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #aaa;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .final-score-value {
-  font-size: 3.5rem;
+  font-size: 3rem;
   font-weight: 800;
   color: white;
   text-shadow: 0 0 20px rgba(255,255,255,0.2);
@@ -268,9 +385,9 @@ body {
 .action-buttons {
   display: flex !important;
   justify-content: center;
-  gap: 15px;
+  gap: 12px;
   width: 100%;
-  min-height: 60px;
+  min-height: 50px;
   position: relative;
   z-index: 1000;
 }
@@ -280,12 +397,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px 32px;
-  min-height: 56px;
-  min-width: 200px;
+  padding: 14px 28px;
+  min-height: 48px;
+  min-width: 180px;
   width: auto;
   flex-shrink: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: bold;
   background: #10b981 !important;
   color: white !important;
@@ -294,40 +411,285 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   pointer-events: auto !important;
-  visibility: visible !important;
-  opacity: 1 !important;
 }
 
 .share-btn:hover {
-  background: #059669;
+  background: #059669 !important;
   transform: translateY(-2px);
 }
 
-.play-again-btn {
-  flex: 1;
+/* ───────── Countdown timer ───────── */
+.countdown-section {
+  margin-top: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  background: #4b5563;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
+  background: rgba(255,255,255,0.06);
+  padding: 12px 20px;
+  border-radius: 10px;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.85;
 }
 
-.play-again-btn:hover {
-  background: #374151;
-  transform: translateY(-2px);
-}
-
-.come-back-text {
-  margin-top: 20px;
+.countdown-icon {
   color: #888;
-  font-size: 0.9rem;
-  font-style: italic;
+  flex-shrink: 0;
+}
+
+.countdown-label {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.countdown-timer {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #a78bfa;
+  letter-spacing: 1px;
+}
+
+/* ───────── End window compact tweaks ───────── */
+.end-window {
+  padding: 28px 24px;
+}
+
+.end-window .logo-section h1 {
+  font-size: 1.8rem;
+}
+
+/* ───────── Mobile-responsive adjustments ───────── */
+@media (max-width: 480px) {
+  .start-window {
+    padding: 24px 18px;
+    border-radius: 18px;
+    width: 92%;
+    max-width: none;
+  }
+
+  .end-window {
+    padding: 20px 16px;
+  }
+
+  .logo-section h1 {
+    font-size: 1.7rem;
+  }
+
+  .end-window .logo-section h1 {
+    font-size: 1.5rem;
+  }
+
+  .description {
+    font-size: 0.88rem;
+    margin-bottom: 18px;
+  }
+
+  .stat-value {
+    font-size: 1.2rem;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+  }
+
+  .play-btn {
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  .final-score-value {
+    font-size: 2.4rem;
+  }
+
+  .final-score-label {
+    font-size: 0.8rem;
+  }
+
+  .share-btn {
+    min-width: 140px;
+    padding: 12px 18px;
+    font-size: 0.9rem;
+  }
+
+  /* HUD */
+  .game-hud {
+    padding: 12px;
+  }
+
+  .hud-top {
+    font-size: 0.95rem;
+  }
+
+  .target-container {
+    top: 40px;
+    gap: 8px;
+  }
+
+  .target-box {
+    padding: 10px 18px;
+    border-radius: 10px;
+  }
+
+  .target-box .label {
+    font-size: 0.7rem;
+  }
+
+  .target-box .city-name {
+    font-size: 1.3rem;
+  }
+
+  .hint-btn {
+    font-size: 0.78rem !important;
+    padding: 0.35rem 0.75rem !important;
+  }
+
+  .confirm-btn {
+    font-size: 1rem !important;
+    padding: 12px 22px !important;
+  }
+
+  .confirm-container {
+    margin-top: 4px;
+  }
+
+  /* Round result */
+  .round-result {
+    padding: 1.1rem;
+    min-width: 0;
+    max-width: none;
+    width: 88%;
+  }
+
+  .round-result__title {
+    font-size: 1.15rem;
+  }
+
+  .round-result__details {
+    font-size: 0.9rem;
+  }
+
+  .round-result__distance {
+    font-size: 0.88rem;
+  }
+
+  .round-result__total {
+    font-size: 1rem;
+  }
+
+  .round-result__next-btn {
+    font-size: 0.95rem;
+    padding: 0.55rem 1.2rem;
+  }
+
+  /* Countdown */
+  .countdown-section {
+    padding: 10px 14px;
+    gap: 6px;
+    margin-top: 16px;
+  }
+
+  .countdown-label {
+    font-size: 0.78rem;
+  }
+
+  .countdown-timer {
+    font-size: 1rem;
+  }
+
+  /* High score banner */
+  .high-score-banner {
+    font-size: 0.85rem;
+    padding: 7px;
+  }
+
+  .stats-container {
+    padding: 10px 6px;
+    margin-bottom: 18px;
+  }
+}
+
+/* Extra-small phones (iPhone SE, etc.) */
+@media (max-width: 360px) {
+  .start-window {
+    padding: 18px 14px;
+  }
+
+  .logo-section h1 {
+    font-size: 1.5rem;
+  }
+
+  .end-window .logo-section h1 {
+    font-size: 1.3rem;
+  }
+
+  .final-score-value {
+    font-size: 2rem;
+  }
+
+  .target-box .city-name {
+    font-size: 1.15rem;
+  }
+}
+
+/* Landscape phones */
+@media (max-height: 500px) {
+  .start-window {
+    padding: 16px 20px;
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+
+  .logo-section {
+    margin-bottom: 10px;
+  }
+
+  .logo-section h1 {
+    font-size: 1.5rem;
+    margin-top: 4px;
+  }
+
+  .description {
+    margin-bottom: 12px;
+    font-size: 0.82rem;
+  }
+
+  .stats-container {
+    margin-bottom: 12px;
+    padding: 8px;
+  }
+
+  .final-score-section {
+    margin-bottom: 12px;
+  }
+
+  .final-score-value {
+    font-size: 2rem;
+  }
+
+  .game-hud {
+    padding: 8px 12px;
+  }
+
+  .target-container {
+    top: 36px;
+    gap: 6px;
+  }
+
+  .target-box {
+    padding: 8px 16px;
+  }
+
+  .target-box .city-name {
+    font-size: 1.2rem;
+  }
+
+  .round-result {
+    padding: 1rem;
+    max-height: 80vh;
+    max-height: 80dvh;
+    overflow-y: auto;
+  }
 }
