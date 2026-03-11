@@ -1,6 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { StartScreenUI } from './StartScreenUI';
 import { EndScreenUI } from './EndScreenUI';
+import { DifficultyMeter } from './DifficultyMeter';
 import { Globe, WifiOff, RefreshCw } from 'lucide-react';
 
 export function GameUI() {
@@ -17,7 +18,8 @@ export function GameUI() {
     useHint,
     lastDistance,
     errorMessage,
-    retryInit
+    retryInit,
+    roundDifficulties
   } = useGameStore();
 
   const currentTarget = targetCities[round - 1];
@@ -139,6 +141,12 @@ export function GameUI() {
           <button className="round-result__next-btn" onClick={nextRound}>
             {round < 3 ? 'Next Round' : 'Finish Game'}
           </button>
+        </div>
+      )}
+
+      {(gameState === 'playing' || gameState === 'revealed') && roundDifficulties && roundDifficulties[round - 1] && (
+        <div className={`round-difficulty-container ${gameState === 'revealed' ? 'hidden-on-mobile' : ''}`}>
+           <DifficultyMeter score={roundDifficulties[round - 1]} size="small" />
         </div>
       )}
     </div>

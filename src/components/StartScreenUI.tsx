@@ -1,8 +1,9 @@
 import { Globe } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
+import { DifficultyMeter } from './DifficultyMeter';
 
 export function StartScreenUI() {
-  const { startGame, gamesPlayed, highScore, totalLifetimeScore } = useGameStore();
+  const { startGame, gamesPlayed, highScore, totalLifetimeScore, gameDifficulty } = useGameStore();
 
   const averageScore = gamesPlayed > 0 ? Math.round(totalLifetimeScore / gamesPlayed) : 0;
 
@@ -31,6 +32,10 @@ export function StartScreenUI() {
             <div className="stat-value">{averageScore}</div>
             <div className="stat-label">Avg Score</div>
           </div>
+        </div>
+
+        <div className="daily-difficulty-section">
+          <DifficultyMeter score={gameDifficulty} label="Today's Game Difficulty" size="large" />
         </div>
 
         <button className="play-btn" onClick={startGame}>

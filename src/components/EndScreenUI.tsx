@@ -56,7 +56,7 @@ export function EndScreenUI() {
 
   useEffect(() => {
     // Trigger rainbow confetti on mount
-    const duration = 3000;
+    const duration = 500;
     const end = Date.now() + duration;
 
     (function frame() {

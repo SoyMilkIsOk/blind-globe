@@ -79,9 +79,9 @@ export const getDailyGameData = (dateString: string): DailyGameData => {
   const rng = seedrandom(dateString);
 
   // Filter cities by difficulty
-  const easyCities = CITIES.filter(c => c.difficulty === 'easy');
-  const mediumCities = CITIES.filter(c => c.difficulty === 'medium');
-  const hardCities = CITIES.filter(c => c.difficulty === 'hard');
+  const easyCities = CITIES.filter(c => c.difficulty === 1);
+  const mediumCities = CITIES.filter(c => c.difficulty === 3);
+  const hardCities = CITIES.filter(c => c.difficulty === 5);
 
   // Deterministic shuffle using Fisher-Yates (works identically on every engine)
   const shuffledEasy = fisherYatesShuffle(easyCities, rng);

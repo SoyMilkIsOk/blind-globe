@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { City } from '../data/cities';
 import { getDailyGameData, fetchDailyDateString } from '../utils/dailySeed';
+import { calculateDistance } from '../utils/distance';
 import confetti from 'canvas-confetti';
 
 interface GameState {
@@ -11,6 +12,8 @@ interface GameState {
   gameState: 'loading' | 'error' | 'start' | 'playing' | 'revealed' | 'finished';
   targetCities: City[];
   referenceCities: City[];
+  roundDifficulties: number[];
+  gameDifficulty: number;
   guess: { lat: number; lng: number } | null;
   tempGuess: { lat: number; lng: number } | null;
   
@@ -38,6 +41,8 @@ interface GameState {
   resetGame: () => void;
 }
 
+let initPromise: Promise<void> | null = null;
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -47,6 +52,8 @@ export const useGameStore = create<GameState>()(
       gameState: 'loading',
       targetCities: [],
       referenceCities: [],
+      roundDifficulties: [],
+      gameDifficulty: 1,
       guess: null,
       tempGuess: null,
       
@@ -59,49 +66,78 @@ export const useGameStore = create<GameState>()(
       errorMessage: '',
 
       initGame: async () => {
-        set({ gameState: 'loading', errorMessage: '' });
+        if (initPromise) return initPromise;
 
-        try {
-          // Fetch the authoritative date string — NO local fallback
-          const today = await fetchDailyDateString();
-          const { lastDailyDate, gameState: prevState } = get();
+        initPromise = (async () => {
+          // Capture the previously persisted state before we override it to loading
+          const { lastDailyDate, gameState: persistedState } = get();
+          
+          set({ gameState: 'loading', errorMessage: '' });
 
-          // If it's a new day, reset the game state
-          if (lastDailyDate !== today) {
-              const { targetCities, referenceCities } = getDailyGameData(today);
-              set({ 
-                  targetCities, 
-                  referenceCities,
-                  lastDailyDate: today,
-                  gameState: 'start',
-                  round: 1,
-                  totalScore: 0,
-                  roundScore: 0,
-                  guess: null,
-                  tempGuess: null,
-                  hintLevel: 0,
-                  lastDistance: null,
-                  errorMessage: ''
-              });
-          } else {
-              // Same day — restore previous game state but ALWAYS regenerate cities 
-              // to ensure we bypass any old cached arrays from local storage backups.
-              const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
-              
-              // If previously in a valid game state, keep it; otherwise show start
-              if (prevState === 'loading' || prevState === 'error') {
-                  set({ targetCities: newTargets, referenceCities: newRefs, gameState: 'start' });
-              } else {
-                  set({ targetCities: newTargets, referenceCities: newRefs, gameState: prevState });
-              }
+          try {
+            // Fetch the authoritative date string — NO local fallback
+            const today = await fetchDailyDateString();
+
+            // If it's a new day, reset the game state
+            if (lastDailyDate !== today) {
+                const { targetCities, referenceCities } = getDailyGameData(today);
+                const roundDifficulties = targetCities.map((target, idx) => {
+                    const ref = referenceCities[idx];
+                    const distance = calculateDistance(target.lat, target.lng, ref.lat, ref.lng);
+                    const avgDiff = (Number(target.difficulty) + Number(ref.difficulty)) / 2;
+                    const distDiff = Math.min(5, Math.ceil(distance / 3500));
+                    return Math.min(10, Math.max(1, Math.round(avgDiff + distDiff)));
+                });
+                const gameDifficulty = Math.round(roundDifficulties.reduce((a, b) => a + b, 0) / 3);
+
+                set({ 
+                    targetCities, 
+                    referenceCities,
+                    roundDifficulties,
+                    gameDifficulty,
+                    lastDailyDate: today,
+                    gameState: 'start',
+                    round: 1,
+                    totalScore: 0,
+                    roundScore: 0,
+                    guess: null,
+                    tempGuess: null,
+                    hintLevel: 0,
+                    lastDistance: null,
+                    errorMessage: ''
+                });
+            } else {
+                // Same day — restore previous game state but ALWAYS regenerate cities 
+                // to ensure we bypass any old cached arrays from local storage backups.
+                const { targetCities: newTargets, referenceCities: newRefs } = getDailyGameData(today);
+                const roundDifficulties = newTargets.map((target, idx) => {
+                    const ref = newRefs[idx];
+                    const distance = calculateDistance(target.lat, target.lng, ref.lat, ref.lng);
+                    const avgDiff = (Number(target.difficulty) + Number(ref.difficulty)) / 2;
+                    const distDiff = Math.min(5, Math.ceil(distance / 3500));
+                    return Math.min(10, Math.max(1, Math.round(avgDiff + distDiff)));
+                });
+                const gameDifficulty = Math.round(roundDifficulties.reduce((a, b) => a + b, 0) / 3);
+                
+                // If previously in a valid game state, keep it; otherwise show start
+                if (persistedState === 'loading' || persistedState === 'error') {
+                    set({ targetCities: newTargets, referenceCities: newRefs, roundDifficulties, gameDifficulty, gameState: 'start' });
+                } else {
+                    set({ targetCities: newTargets, referenceCities: newRefs, roundDifficulties, gameDifficulty, gameState: persistedState });
+                }
+            }
+          } catch (err) {
+            const message = err instanceof Error
+              ? err.message
+              : 'Unable to connect to time server. Please check your internet connection.';
+            console.error('[BlindGlobe] initGame failed:', message);
+            set({ gameState: 'error', errorMessage: message });
+          } finally {
+            initPromise = null;
           }
-        } catch (err) {
-          const message = err instanceof Error
-            ? err.message
-            : 'Unable to connect to time server. Please check your internet connection.';
-          console.error('[BlindGlobe] initGame failed:', message);
-          set({ gameState: 'error', errorMessage: message });
-        }
+        })();
+
+        return initPromise;
       },
 
       retryInit: async () => {
@@ -145,15 +181,7 @@ export const useGameStore = create<GameState>()(
         const { lat, lng } = tempGuess;
         
         // Calculate distance (Haversine)
-        const R = 6371; // Earth radius in km
-        const dLat = (target.lat - lat) * Math.PI / 180;
-        const dLng = (target.lng - lng) * Math.PI / 180;
-        const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) * 
-          Math.sin(dLng/2) * Math.sin(dLng/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const distance = R * c;
+        const distance = calculateDistance(target.lat, target.lng, lat, lng);
 
         // Calculate score (Max 5000, drops off with distance)
         let guessScore = 0;
@@ -214,7 +242,15 @@ export const useGameStore = create<GameState>()(
       partialize: (state) => ({ 
         round: state.round,
         totalScore: state.totalScore,
+        roundScore: state.roundScore,
         gameState: state.gameState,
+        targetCities: state.targetCities,
+        referenceCities: state.referenceCities,
+        roundDifficulties: state.roundDifficulties,
+        gameDifficulty: state.gameDifficulty,
+        guess: state.guess,
+        hintLevel: state.hintLevel,
+        lastDistance: state.lastDistance,
         // Persist stats
         gamesPlayed: state.gamesPlayed,
         highScore: state.highScore,
