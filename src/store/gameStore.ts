@@ -30,9 +30,17 @@ interface GameState {
   // Error message when APIs fail
   errorMessage: string;
 
+  // Tutorial State
+  hasSeenTutorial: boolean;
+  isTutorialOpen: boolean;
+  showTutorialConfirmation: boolean;
+
   // Actions
   initGame: () => Promise<void>;
   retryInit: () => Promise<void>;
+  setTutorialOpen: (isOpen: boolean) => void;
+  setTutorialConfirmation: (show: boolean) => void;
+  completeTutorial: () => void;
   startGame: () => void;
   setTempGuess: (lat: number, lng: number) => void;
   useHint: () => void;
@@ -64,6 +72,9 @@ export const useGameStore = create<GameState>()(
       hintLevel: 0,
       lastDistance: null,
       errorMessage: '',
+      hasSeenTutorial: false,
+      isTutorialOpen: false,
+      showTutorialConfirmation: false,
 
       initGame: async () => {
         if (initPromise) return initPromise;
@@ -133,6 +144,10 @@ export const useGameStore = create<GameState>()(
             console.error('[BlindGlobe] initGame failed:', message);
             set({ gameState: 'error', errorMessage: message });
           } finally {
+            const state = get();
+            if (!state.hasSeenTutorial && state.gameState !== 'error') {
+               set({ isTutorialOpen: true });
+            }
             initPromise = null;
           }
         })();
@@ -235,7 +250,13 @@ export const useGameStore = create<GameState>()(
 
       resetGame: () => {
         set({ gameState: 'start', round: 1, totalScore: 0, roundScore: 0, guess: null, tempGuess: null, hintLevel: 0, lastDistance: null });
-      }
+      },
+
+      setTutorialOpen: (isOpen) => set({ isTutorialOpen: isOpen }),
+
+      setTutorialConfirmation: (show) => set({ showTutorialConfirmation: show }),
+
+      completeTutorial: () => set({ hasSeenTutorial: true, isTutorialOpen: false })
     }),
     {
       name: 'blind-globe-storage',
@@ -255,7 +276,8 @@ export const useGameStore = create<GameState>()(
         gamesPlayed: state.gamesPlayed,
         highScore: state.highScore,
         totalLifetimeScore: state.totalLifetimeScore,
-        lastDailyDate: state.lastDailyDate
+        lastDailyDate: state.lastDailyDate,
+        hasSeenTutorial: state.hasSeenTutorial
       }),
     }
   )
