@@ -1,4 +1,3 @@
-import { Globe } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { DifficultyMeter } from './DifficultyMeter';
 
@@ -11,7 +10,7 @@ export function StartScreenUI() {
     <div className="ui-overlay start-screen-overlay">
       <div className="start-window">
         <div className="logo-section">
-          <Globe size={64} color="#3b82f6" />
+          <img src="/blindglobe-nobg.png" alt="Blind Globe Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
           <h1>Blind Globe</h1>
         </div>
         
