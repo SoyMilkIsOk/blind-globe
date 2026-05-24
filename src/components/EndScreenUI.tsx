@@ -1,4 +1,4 @@
-import { Share2, Globe, Clock } from 'lucide-react';
+import { Share2, Clock } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import confetti from 'canvas-confetti';
 import { useEffect, useState } from 'react';
@@ -103,7 +103,7 @@ export function EndScreenUI() {
     <div className="ui-overlay start-screen-overlay">
       <div className="start-window end-window">
         <div className="logo-section">
-          <Globe size={40} color="#3b82f6" />
+          <img src="/blindglobe-nobg.png" alt="Blind Globe Logo" style={{ width: '96px', height: '96px', objectFit: 'contain' }} />
           <h1>Game Over</h1>
         </div>
 
@@ -143,7 +143,7 @@ export function EndScreenUI() {
         {/* Countdown to next puzzle */}
         <div className="countdown-section">
             <Clock size={16} className="countdown-icon" />
-            <span className="countdown-label">Next puzzle in</span>
+            <span className="countdown-label">New <strong className="countdown-brand">BlindGlobe</strong> in</span>
             <span className="countdown-timer">{formatCountdown(remaining)}</span>
         </div>
       </div>

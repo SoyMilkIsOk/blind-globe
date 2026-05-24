@@ -10,7 +10,7 @@ export function StartScreenUI() {
     <div className="ui-overlay start-screen-overlay">
       <div className="start-window">
         <div className="logo-section">
-          <img src="/blindglobe-nobg.png" alt="Blind Globe Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+          <img src="/blindglobe-nobg.png" alt="Blind Globe Logo" style={{ width: '96px', height: '96px', objectFit: 'contain' }} />
           <h1>Blind Globe</h1>
         </div>
         
