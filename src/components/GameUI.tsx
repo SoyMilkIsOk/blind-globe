@@ -3,6 +3,7 @@ import { StartScreenUI } from './StartScreenUI';
 import { EndScreenUI } from './EndScreenUI';
 import { DifficultyMeter } from './DifficultyMeter';
 import { Globe, WifiOff, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export function GameUI() {
   const { 
@@ -23,6 +24,27 @@ export function GameUI() {
   } = useGameStore();
 
   const currentTarget = targetCities[round - 1];
+
+  // ── Delayed reveal card ──
+  // Wait for the globe animation before showing the round result card
+  const [showResultCard, setShowResultCard] = useState(false);
+
+  useEffect(() => {
+    if (gameState === 'revealed') {
+      setShowResultCard(false);
+      // Poll the DOM attribute set by GameGlobe
+      const interval = setInterval(() => {
+        const root = document.getElementById('root');
+        if (root?.dataset.revealReady === 'true') {
+          setShowResultCard(true);
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    } else {
+      setShowResultCard(false);
+    }
+  }, [gameState]);
 
   // Loading state — waiting for API
   if (gameState === 'loading') {
@@ -79,7 +101,7 @@ export function GameUI() {
             <div className="target-box">
                 <div className="label">To Find:</div>
                 <div className="city-name">
-                    {currentTarget?.name}
+                    <span className="shimmer-text">{currentTarget?.name}</span>
                     {hintLevel >= 1 && <span className="country-hint">, {currentTarget?.country}</span>}
                 </div>
             </div>
@@ -106,7 +128,7 @@ export function GameUI() {
         </div>
       )}
 
-      {gameState === 'revealed' && (
+      {gameState === 'revealed' && showResultCard && (
         <div className="round-result">
           <h3 className="round-result__title">Round Complete!</h3>
           

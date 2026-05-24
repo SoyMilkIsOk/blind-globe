@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { ThreeEvent, useFrame } from '@react-three/fiber';
 import { Sphere, Line } from '@react-three/drei';
 import { TextureLoader, Vector3 } from 'three';
@@ -10,6 +10,13 @@ import { latLngToVector } from '../../utils/math';
 
 // Better texture URL (Three.js example texture, reliable)
 const REAL_MAP_URL = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg';
+
+/** Duration of the reveal animation in seconds */
+const REVEAL_DURATION = 1.0;
+/** Delay before the line starts drawing (target pin appears first) */
+const LINE_DELAY = 0.3;
+/** Total time before the result card appears */
+const CARD_DELAY_MS = 1200;
 
 export function GameGlobe() {
   const { 
@@ -30,10 +37,47 @@ export function GameGlobe() {
   const currentReference = referenceCities[round - 1];
   const currentTarget = targetCities[round - 1];
 
+  // ── Reveal Animation State ──
+  const revealProgress = useRef(0);
+  const revealStartTime = useRef<number | null>(null);
+  const [targetPinScale, setTargetPinScale] = useState(0);
+  const [lineProgress, setLineProgress] = useState(0);
+  const [revealReady, setRevealReady] = useState(false);
+
+  // Reset reveal state when entering revealed or leaving it
+  useEffect(() => {
+    if (gameState === 'revealed') {
+      revealProgress.current = 0;
+      revealStartTime.current = null;
+      setTargetPinScale(0);
+      setLineProgress(0);
+      setRevealReady(false);
+
+      // Signal to GameUI that the card can appear after the animation
+      const timer = setTimeout(() => setRevealReady(true), CARD_DELAY_MS);
+      return () => clearTimeout(timer);
+    } else {
+      // Reset when not revealed
+      revealProgress.current = 0;
+      revealStartTime.current = null;
+      setTargetPinScale(1);
+      setLineProgress(1);
+      setRevealReady(false);
+    }
+  }, [gameState]);
+
+  // Expose revealReady to the store-less GameUI via a DOM attribute
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (root) {
+      root.dataset.revealReady = String(revealReady);
+    }
+  }, [revealReady]);
+
   // Camera Animation State
   const targetCameraPos = useRef<Vector3 | null>(null);
 
-  // Trigger animation when revealed
+  // Trigger camera animation when revealed
   useEffect(() => {
     if (gameState === 'revealed' && currentTarget && guess) {
         const start = latLngToVector(guess.lat, guess.lng);
@@ -56,15 +100,35 @@ export function GameGlobe() {
   }, [gameState, currentTarget, guess]);
 
   useFrame((state, delta) => {
+    // Camera interpolation
     if (targetCameraPos.current) {
-        // Smoothly interpolate camera position
         state.camera.position.lerp(targetCameraPos.current, 2 * delta);
         state.camera.lookAt(0, 0, 0);
         
-        // Stop animating if close enough
         if (state.camera.position.distanceTo(targetCameraPos.current) < 0.05) {
             targetCameraPos.current = null;
         }
+    }
+
+    // Reveal animation
+    if (gameState === 'revealed') {
+      if (revealStartTime.current === null) {
+        revealStartTime.current = state.clock.elapsedTime;
+      }
+      
+      const elapsed = state.clock.elapsedTime - revealStartTime.current;
+      
+      // Phase 1: Target pin scales up (0 → LINE_DELAY)
+      const pinT = Math.min(1, elapsed / LINE_DELAY);
+      const easedPin = 1 - Math.pow(1 - pinT, 3); // ease-out cubic
+      setTargetPinScale(easedPin);
+      
+      // Phase 2: Line draws (LINE_DELAY → REVEAL_DURATION)
+      if (elapsed > LINE_DELAY) {
+        const lineT = Math.min(1, (elapsed - LINE_DELAY) / (REVEAL_DURATION - LINE_DELAY));
+        const easedLine = 1 - Math.pow(1 - lineT, 2); // ease-out quad
+        setLineProgress(easedLine);
+      }
     }
   });
 
@@ -95,18 +159,29 @@ export function GameGlobe() {
   // Hide pins if finished or start
   const showPins = !isStart && !isFinished;
 
-  // Calculate line points if revealed
-  let linePoints: Vector3[] = [];
-  if (isRevealed && guess && currentTarget) {
+  // Calculate ALL line points (we'll slice based on progress)
+  const allLinePoints = useMemo(() => {
+    if (!guess || !currentTarget) return [];
     const start = latLngToVector(guess.lat, guess.lng);
     const end = latLngToVector(currentTarget.lat, currentTarget.lng);
     
-    for (let i = 0; i <= 20; i++) {
-        const t = i / 20;
-        const v = start.clone().lerp(end, t).normalize().multiplyScalar(1.02);
-        linePoints.push(v);
+    const points: Vector3[] = [];
+    const segments = 40; // More segments for smoother animation
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const v = start.clone().lerp(end, t).normalize().multiplyScalar(1.02);
+      points.push(v);
     }
-  }
+    return points;
+  }, [guess, currentTarget]);
+
+  // Sliced line points based on reveal progress
+  const visibleLinePoints = useMemo(() => {
+    if (allLinePoints.length === 0) return [];
+    if (gameState === 'finished') return allLinePoints;
+    const count = Math.max(2, Math.ceil(allLinePoints.length * lineProgress));
+    return allLinePoints.slice(0, count);
+  }, [allLinePoints, lineProgress, gameState]);
 
   // Process Country Outlines
   const countryLines = useMemo(() => {
@@ -134,11 +209,8 @@ export function GameGlobe() {
             });
         }
     });
-    console.log(`Generated ${lines.length} country border lines`);
     return lines;
   }, []);
-
-  console.log("GameGlobe Render:", { hintLevel, showRealMap, linesCount: countryLines.length });
 
   return (
     <group>
@@ -232,20 +304,21 @@ export function GameGlobe() {
         />
       )}
 
-      {/* Target Pin */}
+      {/* Target Pin — animated scale-up on reveal */}
       {isRevealed && currentTarget && showPins && (
         <Pin 
           lat={currentTarget.lat} 
           lng={currentTarget.lng} 
           color="green" 
           label={`${currentTarget.name}, ${currentTarget.country}`}
+          scale={isFinished ? 1 : targetPinScale}
         />
       )}
 
-      {/* Connection Line */}
-      {isRevealed && linePoints.length > 0 && showPins && (
+      {/* Connection Line — animated draw on reveal */}
+      {isRevealed && visibleLinePoints.length >= 2 && showPins && lineProgress > 0 && (
         <Line 
-            points={linePoints} 
+            points={visibleLinePoints} 
             color="yellow" 
             lineWidth={3} 
         />

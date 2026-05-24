@@ -103,7 +103,9 @@ export function EndScreenUI() {
     <div className="ui-overlay start-screen-overlay">
       <div className="start-window end-window">
         <div className="logo-section">
-          <img src="/blindglobe-nobg.png" alt="Blind Globe Logo" style={{ width: '96px', height: '96px', objectFit: 'contain' }} />
+          <div className="logo-glow-wrapper">
+            <img src="/blindglobe-nobg.png" alt="Blind Globe Logo" style={{ width: '96px', height: '96px', objectFit: 'contain' }} />
+          </div>
           <h1>Game Over</h1>
         </div>
 
@@ -115,7 +117,7 @@ export function EndScreenUI() {
         
         <div className="final-score-section">
             <div className="final-score-label">Final Score</div>
-            <div className="final-score-value">{totalScore}</div>
+            <div className="final-score-value shimmer-text">{totalScore}</div>
         </div>
 
         <div className="stats-container">
