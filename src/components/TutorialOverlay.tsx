@@ -9,7 +9,8 @@ export function TutorialOverlay() {
     setTutorialOpen,
     showTutorialConfirmation,
     setTutorialConfirmation,
-    completeTutorial
+    completeTutorial,
+    gameState
   } = useGameStore();
 
   const [step, setStep] = useState(0);
@@ -28,6 +29,10 @@ export function TutorialOverlay() {
   };
 
   if (!isTutorialOpen && !showTutorialConfirmation) {
+    if (gameState === 'revealed' || gameState === 'finished') {
+      return null;
+    }
+
     return (
       <div className="tutorial-root">
         <button
