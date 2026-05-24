@@ -249,6 +249,50 @@
   background: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
   filter: blur(10px);
+  pointer-events: none;
+}
+
+.demo-globe-inner {
+  width: 200%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: -50%;
+  animation: demoGlobeRotate 8s infinite ease-in-out;
+}
+
+.demo-globe-texture {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.08) 1px,
+    transparent 1px,
+    transparent 15px
+  ), repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.08) 1px,
+    transparent 1px,
+    transparent 15px
+  ), #1e3a8a;
+}
+
+.demo-ref-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #22c55e; /* Green reference pin as requested */
+  border-radius: 50%;
+  border: 2px solid white;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  top: 45%;
+  left: 45%;
 }
 
 .demo-cursor {
@@ -257,47 +301,74 @@
   height: 20px;
   z-index: 10;
   pointer-events: none;
-  animation: demoCursorMove 4s infinite;
+  animation: demoCursorMove 8s infinite;
 }
 
 .demo-marker {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #ef4444;
+  width: 10px;
+  height: 10px;
+  background: #f97316; /* Orange guess pin */
+  border-radius: 50%;
+  border: 2px solid white;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  opacity: 0;
+  top: 55%;
+  left: 60%;
+  animation: demoMarkerAppear 8s infinite;
+}
+
+.demo-target-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #ef4444; /* Red Correct City Pin */
   border-radius: 50%;
   border: 2px solid white;
   transform: translate(-50%, -50%);
   z-index: 5;
   opacity: 0;
-  animation: demoMarkerAppear 4s infinite;
-}
-
-.demo-target-marker {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #22c55e;
-  border-radius: 50%;
-  border: 2px solid white;
-  transform: translate(-50%, -50%);
-  top: 40%;
-  left: 60%;
-  z-index: 4;
-  opacity: 0;
-  animation: demoTargetAppear 4s infinite;
+  top: 42%;
+  left: 68%;
+  animation: demoTargetAppear 8s infinite;
 }
 
 .demo-line {
   position: absolute;
   height: 2px;
   background: #fbbf24;
-  top: 40%;
+  top: 55%;
   left: 60%;
+  width: 0;
   transform-origin: left center;
-  z-index: 3;
+  z-index: 4;
   opacity: 0;
-  animation: demoLineAppear 4s infinite;
+  animation: demoLineAppear 8s infinite;
+}
+
+.demo-confirm-container {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  opacity: 0;
+  pointer-events: none;
+  animation: demoConfirmAppear 8s infinite;
+}
+
+.demo-confirm-btn {
+  background: #f97316;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3);
+  pointer-events: auto;
 }
 
 .demo-result {
@@ -313,38 +384,60 @@
   font-size: 0.9rem;
   opacity: 0;
   z-index: 5;
-  animation: demoResultAppear 4s infinite;
+  animation: demoResultAppear 8s infinite;
+}
+
+@keyframes demoGlobeRotate {
+  0%, 12.5% { transform: translateX(0); } /* 0s - 1s */
+  31.25%, 100% { transform: translateX(-40px); } /* 2.5s - 8s */
 }
 
 @keyframes demoCursorMove {
-  0% { top: 80%; left: 80%; }
-  20% { top: 60%; left: 40%; }
-  30% { top: 60%; left: 40%; transform: scale(0.8); } /* Click */
-  35% { top: 60%; left: 40%; transform: scale(1); }
-  60% { top: 70%; left: 50%; }
-  100% { top: 80%; left: 80%; }
+  0% { top: 85%; left: 85%; transform: scale(1); }
+  12.5% { top: 50%; left: 50%; transform: scale(1); } /* move to globe center */
+  15% { transform: scale(0.9); } /* grab */
+  31.25% { top: 50%; left: 35%; transform: scale(0.9); } /* drag left */
+  33.75% { top: 50%; left: 35%; transform: scale(1); } /* release */
+  40% { top: 55%; left: 60%; transform: scale(1); } /* move to guess */
+  41.25% { top: 55%; left: 60%; transform: scale(0.8); } /* click guess */
+  43.75% { top: 55%; left: 60%; transform: scale(1); }
+  52.5% { top: 90%; left: 50%; transform: scale(1); } /* move to confirm */
+  53.75% { top: 90%; left: 50%; transform: scale(0.8); } /* click confirm */
+  56.25% { top: 90%; left: 50%; transform: scale(1); }
+  70%, 100% { top: 85%; left: 85%; transform: scale(1); } /* return to rest */
 }
 
 @keyframes demoMarkerAppear {
-  0%, 29% { opacity: 0; top: 60%; left: 40%; }
-  30%, 100% { opacity: 1; top: 60%; left: 40%; }
+  0%, 40% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  41.25% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  43.75%, 93.75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  95%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+}
+
+@keyframes demoConfirmAppear {
+  0%, 40% { opacity: 0; transform: translate(-50%, 10px); pointer-events: none; }
+  41.25%, 52.5% { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  56.25%, 100% { opacity: 0; transform: translate(-50%, 10px); pointer-events: none; }
 }
 
 @keyframes demoTargetAppear {
-  0%, 49% { opacity: 0; }
-  50%, 100% { opacity: 1; }
+  0%, 62.5% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  63.75% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  65%, 93.75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  95%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
 }
 
 @keyframes demoLineAppear {
-  0%, 49% { opacity: 0; width: 0; transform: rotate(0deg); }
-  50% { opacity: 1; width: 0; transform: rotate(180deg); } /* Roughly pointing to guess */
-  60%, 100% { opacity: 1; width: 85px; transform: rotate(145deg); }
+  0%, 66.25% { opacity: 0; width: 0; transform: rotate(-58deg); }
+  67.5% { opacity: 1; width: 0; transform: rotate(-58deg); }
+  72.5%, 93.75% { opacity: 1; width: 22px; transform: rotate(-58deg); }
+  95%, 100% { opacity: 0; width: 0; }
 }
 
 @keyframes demoResultAppear {
-  0%, 65% { opacity: 0; transform: translate(-50%, 10px); }
-  75%, 95% { opacity: 1; transform: translate(-50%, 0); }
-  100% { opacity: 0; transform: translate(-50%, -10px); }
+  0%, 75% { opacity: 0; transform: translate(-50%, 10px); }
+  77.5%, 93.75% { opacity: 1; transform: translate(-50%, 0); }
+  95%, 100% { opacity: 0; transform: translate(-50%, -10px); }
 }
 
 @media (max-width: 480px) {
