@@ -441,6 +441,11 @@
 }
 
 @media (max-width: 480px) {
+  .tutorial-btn-floating {
+    right: auto;
+    left: 24px;
+  }
+
   .tutorial-modal {
     padding: 24px 20px;
     width: 95%;
