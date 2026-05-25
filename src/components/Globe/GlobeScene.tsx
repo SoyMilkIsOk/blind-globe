@@ -26,6 +26,10 @@ export function GlobeScene() {
   // Bright lighting for Start (Real Map) and Revealed/Finished
   const isBright = gameState === 'start' || gameState === 'revealed' || gameState === 'finished';
   
+  // Disable OrbitControls during reveal animation so camera animation
+  // isn't fighting with user controls or snapping back
+  const controlsEnabled = gameState !== 'revealed';
+
   // Initial position check
   const isMobile = window.innerWidth < 768;
   const initialZ = isMobile ? 3.5 : 2.5;
@@ -78,6 +82,7 @@ export function GlobeScene() {
           
           <OrbitControls 
             makeDefault
+            enabled={controlsEnabled}
             enablePan={false} 
             minDistance={1.5} 
             maxDistance={4} 

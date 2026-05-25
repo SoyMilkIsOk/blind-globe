@@ -11,12 +11,22 @@ import { latLngToVector } from '../../utils/math';
 // Better texture URL (Three.js example texture, reliable)
 const REAL_MAP_URL = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg';
 
-/** Duration of the reveal animation in seconds */
-const REVEAL_DURATION = 1.0;
-/** Delay before the line starts drawing (target pin appears first) */
-const LINE_DELAY = 0.3;
-/** Total time before the result card appears */
-const CARD_DELAY_MS = 1200;
+/** Phase 1: Move camera to guess location */
+const PHASE1_DURATION = 0.6;
+/** Phase 2: Follow line from guess to real answer */
+const PHASE2_DURATION = 1.5;
+/** Phase 3: Zoom out to reveal both pins */
+const PHASE3_DURATION = 0.6;
+/** Total animation time */
+const TOTAL_ANIM_DURATION = PHASE1_DURATION + PHASE2_DURATION + PHASE3_DURATION;
+const CARD_DELAY_MS = (TOTAL_ANIM_DURATION + 0.15) * 1000;
+
+// ── Pre-allocated Vector3s to avoid GC pressure in the render loop ──
+const _camPos = new Vector3();
+const _lookAt = new Vector3();
+
+// Throttle threshold — only trigger React re-render when value changes by this much
+const STATE_THRESHOLD = 0.015;
 
 export function GameGlobe() {
   const { 
@@ -38,31 +48,89 @@ export function GameGlobe() {
   const currentTarget = targetCities[round - 1];
 
   // ── Reveal Animation State ──
-  const revealProgress = useRef(0);
   const revealStartTime = useRef<number | null>(null);
   const [targetPinScale, setTargetPinScale] = useState(0);
   const [lineProgress, setLineProgress] = useState(0);
   const [revealReady, setRevealReady] = useState(false);
 
+  // Track last emitted state values to throttle re-renders
+  const lastEmittedPinScale = useRef(0);
+  const lastEmittedLineProgress = useRef(0);
+
+  // Captured initial camera position when reveal starts
+  const initialCameraPos = useRef<Vector3 | null>(null);
+
+  // Pre-computed camera targets for each phase
+  const cameraTargets = useRef<{
+    guessPos: Vector3;
+    targetPos: Vector3;
+    revealPos: Vector3;
+    lookAtOffset: Vector3;
+  } | null>(null);
+
   // Reset reveal state when entering revealed or leaving it
   useEffect(() => {
     if (gameState === 'revealed') {
-      revealProgress.current = 0;
       revealStartTime.current = null;
+      initialCameraPos.current = null;
       setTargetPinScale(0);
       setLineProgress(0);
+      lastEmittedPinScale.current = 0;
+      lastEmittedLineProgress.current = 0;
       setRevealReady(false);
+
+      // Pre-compute camera positions
+      if (guess && currentTarget) {
+        const isMobile = window.innerWidth < 768;
+        const closeZoom = isMobile ? 2.2 : 1.8;
+
+        const guessVec = latLngToVector(guess.lat, guess.lng);
+        const targetVec = latLngToVector(currentTarget.lat, currentTarget.lng);
+
+        // Phase 1 end: Camera close to guess pin
+        const guessPos = guessVec.clone().multiplyScalar(closeZoom);
+
+        // Phase 2 end: Camera close to real answer pin
+        const targetPos = targetVec.clone().multiplyScalar(closeZoom);
+
+        // Phase 3 end: Zoom out to fit BOTH pins on screen
+        const mid = guessVec.clone().add(targetVec).normalize();
+        const dist = guessVec.distanceTo(targetVec);
+
+        // FOV-based zoom calculation
+        const halfFovRad = (45 / 2) * Math.PI / 180;
+        const halfChord = dist / 2;
+        // Margin: fraction of the FOV used for pins (rest is padding/labels/offset)
+        const margin = isMobile ? 0.35 : 0.50;
+        const minZoom = halfChord / (Math.tan(halfFovRad) * margin);
+        // Extra zoom boost for portrait displays
+        const aspect = window.innerWidth / window.innerHeight;
+        const portraitBoost = aspect < 1 ? 1.3 : 1;
+        const revealZoom = Math.max(closeZoom + 0.3, minZoom * portraitBoost);
+        // No hard clamp — let it go as far as needed
+        const clampedZoom = Math.min(revealZoom, 7.0);
+        const revealPos = mid.clone().multiplyScalar(clampedZoom);
+
+        // LookAt offset to push globe content above the round result card
+        const offsetAmount = isMobile ? 0.45 : 0.22;
+        const lookAtOffset = new Vector3(0, -offsetAmount, 0);
+
+        cameraTargets.current = { guessPos, targetPos, revealPos, lookAtOffset };
+      }
 
       // Signal to GameUI that the card can appear after the animation
       const timer = setTimeout(() => setRevealReady(true), CARD_DELAY_MS);
       return () => clearTimeout(timer);
     } else {
       // Reset when not revealed
-      revealProgress.current = 0;
       revealStartTime.current = null;
+      initialCameraPos.current = null;
       setTargetPinScale(1);
       setLineProgress(1);
+      lastEmittedPinScale.current = 1;
+      lastEmittedLineProgress.current = 1;
       setRevealReady(false);
+      cameraTargets.current = null;
     }
   }, [gameState]);
 
@@ -74,61 +142,88 @@ export function GameGlobe() {
     }
   }, [revealReady]);
 
-  // Camera Animation State
-  const targetCameraPos = useRef<Vector3 | null>(null);
+  // ── Throttled state setters: only re-render when value changes meaningfully ──
+  const emitPinScale = (value: number) => {
+    if (Math.abs(value - lastEmittedPinScale.current) > STATE_THRESHOLD || value >= 1) {
+      setTargetPinScale(value);
+      lastEmittedPinScale.current = value;
+    }
+  };
+  const emitLineProgress = (value: number) => {
+    if (Math.abs(value - lastEmittedLineProgress.current) > STATE_THRESHOLD || value >= 1) {
+      setLineProgress(value);
+      lastEmittedLineProgress.current = value;
+    }
+  };
 
-  // Trigger camera animation when revealed
-  useEffect(() => {
-    if (gameState === 'revealed' && currentTarget && guess) {
-        const start = latLngToVector(guess.lat, guess.lng);
-        const end = latLngToVector(currentTarget.lat, currentTarget.lng);
-        
-        // Calculate midpoint
-        const mid = start.clone().add(end).normalize();
-        
-        // Calculate distance between points on sphere to adjust zoom
-        const dist = start.distanceTo(end);
-        
-        // Adjust zoom based on distance (closer if points are close, further if far)
-        // Base radius 2.0, add some factor of distance
-        const zoomRadius = 2.0 + (dist * 0.8);
-        
-        targetCameraPos.current = mid.multiplyScalar(zoomRadius);
+  useFrame((state) => {
+    if (gameState !== 'revealed') return;
+
+    // Capture initial camera position on the very first frame
+    if (revealStartTime.current === null) {
+      revealStartTime.current = state.clock.elapsedTime;
+      initialCameraPos.current = state.camera.position.clone();
+    }
+
+    const elapsed = state.clock.elapsedTime - revealStartTime.current;
+    const targets = cameraTargets.current;
+    const startPos = initialCameraPos.current;
+
+    if (!targets || !startPos) return;
+
+    // Global progress (0 → 1) drives the lookAt offset smoothly across all phases
+    const globalT = Math.min(1, elapsed / TOTAL_ANIM_DURATION);
+    const offsetScale = easeInOutCubic(globalT);
+    // Re-use pre-allocated _lookAt vector — zero allocations
+    _lookAt.copy(targets.lookAtOffset).multiplyScalar(offsetScale);
+
+    // ── Phase 1: Move camera from current position to guess pin ──
+    if (elapsed < PHASE1_DURATION) {
+      const t = Math.min(1, elapsed / PHASE1_DURATION);
+      const eased = easeOutCubic(t);
+
+      _camPos.copy(startPos).lerp(targets.guessPos, eased);
+      state.camera.position.copy(_camPos);
+      state.camera.lookAt(_lookAt.x, _lookAt.y, _lookAt.z);
+
+      // Target pin scales up
+      const pinVal = easeOutCubic(Math.min(1, elapsed / (PHASE1_DURATION * 0.8)));
+      emitPinScale(pinVal);
+    }
+    // ── Phase 2: Follow line from guess to real answer ──
+    else if (elapsed < PHASE1_DURATION + PHASE2_DURATION) {
+      const phase2Elapsed = elapsed - PHASE1_DURATION;
+      const t = Math.min(1, phase2Elapsed / PHASE2_DURATION);
+      const eased = easeInOutCubic(t);
+
+      _camPos.copy(targets.guessPos).lerp(targets.targetPos, eased);
+      state.camera.position.copy(_camPos);
+      state.camera.lookAt(_lookAt.x, _lookAt.y, _lookAt.z);
+
+      emitLineProgress(eased);
+      emitPinScale(1);
+    }
+    // ── Phase 3: Zoom out to reveal both pins ──
+    else if (elapsed < TOTAL_ANIM_DURATION) {
+      const phase3Elapsed = elapsed - PHASE1_DURATION - PHASE2_DURATION;
+      const t = Math.min(1, phase3Elapsed / PHASE3_DURATION);
+      const eased = easeOutCubic(t);
+
+      _camPos.copy(targets.targetPos).lerp(targets.revealPos, eased);
+      state.camera.position.copy(_camPos);
+      state.camera.lookAt(_lookAt.x, _lookAt.y, _lookAt.z);
+
+      emitLineProgress(1);
+      emitPinScale(1);
     } else {
-        targetCameraPos.current = null;
-    }
-  }, [gameState, currentTarget, guess]);
-
-  useFrame((state, delta) => {
-    // Camera interpolation
-    if (targetCameraPos.current) {
-        state.camera.position.lerp(targetCameraPos.current, 2 * delta);
-        state.camera.lookAt(0, 0, 0);
-        
-        if (state.camera.position.distanceTo(targetCameraPos.current) < 0.05) {
-            targetCameraPos.current = null;
-        }
-    }
-
-    // Reveal animation
-    if (gameState === 'revealed') {
-      if (revealStartTime.current === null) {
-        revealStartTime.current = state.clock.elapsedTime;
-      }
-      
-      const elapsed = state.clock.elapsedTime - revealStartTime.current;
-      
-      // Phase 1: Target pin scales up (0 → LINE_DELAY)
-      const pinT = Math.min(1, elapsed / LINE_DELAY);
-      const easedPin = 1 - Math.pow(1 - pinT, 3); // ease-out cubic
-      setTargetPinScale(easedPin);
-      
-      // Phase 2: Line draws (LINE_DELAY → REVEAL_DURATION)
-      if (elapsed > LINE_DELAY) {
-        const lineT = Math.min(1, (elapsed - LINE_DELAY) / (REVEAL_DURATION - LINE_DELAY));
-        const easedLine = 1 - Math.pow(1 - lineT, 2); // ease-out quad
-        setLineProgress(easedLine);
-      }
+      // Animation complete — keep camera positioned every frame
+      // (prevents OrbitControls from snapping when it re-enables)
+      state.camera.position.copy(targets.revealPos);
+      state.camera.lookAt(
+        targets.lookAtOffset.x,
+        targets.lookAtOffset.y,
+        targets.lookAtOffset.z
+      );
     }
   });
 
@@ -166,7 +261,7 @@ export function GameGlobe() {
     const end = latLngToVector(currentTarget.lat, currentTarget.lng);
     
     const points: Vector3[] = [];
-    const segments = 40; // More segments for smoother animation
+    const segments = 40;
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const v = start.clone().lerp(end, t).normalize().multiplyScalar(1.02);
@@ -187,7 +282,6 @@ export function GameGlobe() {
   const countryLines = useMemo(() => {
     const lines: Vector3[][] = [];
     
-    // Safety check for data
     if (!(countriesData as any).features) {
         console.error("No features found in countriesData");
         return lines;
@@ -197,7 +291,7 @@ export function GameGlobe() {
         const geometry = feature.geometry;
         if (geometry.type === 'Polygon') {
             geometry.coordinates.forEach((ring: any[]) => {
-                const points = ring.map(([lng, lat]) => latLngToVector(lat, lng, 1.005)); // Increased radius slightly
+                const points = ring.map(([lng, lat]) => latLngToVector(lat, lng, 1.005));
                 lines.push(points);
             });
         } else if (geometry.type === 'MultiPolygon') {
@@ -328,36 +422,36 @@ export function GameGlobe() {
 }
 
 
+// ── Easing Functions ──
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 // Helper to create circle points for grid
 function createCirclePoints(radius: number, axis: 'x' | 'y', rotationDeg: number, latOffsetDeg: number = 0): Vector3[] {
     const points: Vector3[] = [];
     const segments = 64;
     
-    // If drawing latitude lines (axis 'x' roughly), we need to handle the offset (latitude)
-    // If drawing longitude (axis 'y'), we rotate around Y.
-    
     for (let i = 0; i <= segments; i++) {
         const theta = (i / segments) * Math.PI * 2;
         let x = 0, y = 0, z = 0;
 
         if (axis === 'y') {
-            // Longitude: Circle through poles, rotated by rotationDeg
-            // Standard circle in XZ plane, rotated 90 deg to stand up? 
-            // Actually, longitude lines are great circles passing through poles.
-            // A circle in YZ plane rotated around Y.
             x = radius * Math.sin(theta);
             y = radius * Math.cos(theta);
             z = 0;
             
-            // Rotate around Y
             const rot = rotationDeg * Math.PI / 180;
             const x_new = x * Math.cos(rot) - z * Math.sin(rot);
             const z_new = x * Math.sin(rot) + z * Math.cos(rot);
             x = x_new;
             z = z_new;
         } else {
-            // Latitude: Circle parallel to equator (XZ plane), at y offset
             const latRad = latOffsetDeg * Math.PI / 180;
             const r = radius * Math.cos(latRad);
             const y_off = radius * Math.sin(latRad);
